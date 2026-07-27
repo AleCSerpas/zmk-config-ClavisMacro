@@ -1,0 +1,6 @@
+if SHIELD_CLAVISMACRO
+
+config ZMK_KEYBOARD_NAME
+    default "ClavisMacro"
+
+endif
