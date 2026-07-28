@@ -6,11 +6,17 @@
         zmk,matrix-transform = &default_transform;
     };
 
+    /*
+     * Combined scanner:
+     * - 3x3 switch matrix
+     * - Encoder push button as the 10th logical key
+     */
     kscan0: kscan_composite {
         compatible = "zmk,kscan-composite";
 
         rows = <4>;
         columns = <3>;
+        wakeup-source;
 
         matrix {
             kscan = <&matrix_kscan>;
@@ -22,32 +28,65 @@
         };
     };
 
+    /*
+     * 3x3 MATRIX
+     *
+     * Rows:
+     *   Row 0 = P0.20
+     *   Row 1 = P0.29
+     *   Row 2 = P0.02
+     *
+     * Columns:
+     *   Col 0 = P1.06
+     *   Col 1 = P1.04
+     *   Col 2 = P0.17
+     *
+     * The working Arduino firmware drove rows LOW and read
+     * columns using pull-ups, which corresponds to col2row.
+     */
     matrix_kscan: matrix_kscan {
         compatible = "zmk,kscan-gpio-matrix";
 
-        diode-direction = "row2col";
+        diode-direction = "col2row";
+        wakeup-source;
 
-        row-gpios
-            = <&pro_micro 3 GPIO_ACTIVE_HIGH>
-            , <&pro_micro 16 GPIO_ACTIVE_HIGH>
-            , <&pro_micro 15 GPIO_ACTIVE_HIGH>
+        /* For col2row, columns are driven outputs. */
+        col-gpios
+            = <&gpio1 6 GPIO_ACTIVE_HIGH>
+            , <&gpio1 4 GPIO_ACTIVE_HIGH>
+            , <&gpio0 17 GPIO_ACTIVE_HIGH>
             ;
 
-        col-gpios
-            = <&pro_micro 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-            , <&pro_micro 8 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-            , <&pro_micro 2 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+        /* For col2row, rows are pulled-down inputs. */
+        row-gpios
+            = <&gpio0 20 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+            , <&gpio0 29 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+            , <&gpio0 2  (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
             ;
     };
 
+    /*
+     * Encoder push switch:
+     * P0.09, connected to GND when pressed.
+     */
     encoder_button_kscan: encoder_button_kscan {
         compatible = "zmk,kscan-gpio-direct";
+        wakeup-source;
 
         input-gpios = <
             &gpio0 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)
         >;
     };
 
+    /*
+     * Logical key order:
+     *
+     *  0  1  2
+     *  3  4  5
+     *  6  7  8
+     *
+     *  9 = encoder push button
+     */
     default_transform: matrix_transform {
         compatible = "zmk,matrix-transform";
 
@@ -62,12 +101,21 @@
         >;
     };
 
+    /*
+     * EC11 rotary encoder:
+     *   A = P1.15
+     *   B = P0.10
+     */
     encoder0: encoder0 {
         compatible = "alps,ec11";
 
         a-gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
         b-gpios = <&gpio0 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 
+        /*
+         * Typical 20-detent EC11:
+         * 80 quadrature steps per full rotation.
+         */
         steps = <80>;
         status = "okay";
     };
@@ -78,4 +126,17 @@
         sensors = <&encoder0>;
         triggers-per-rotation = <20>;
     };
+};
+
+/*
+ * P0.09 and P0.10 are NFC1/NFC2 after a full chip erase.
+ * Configure them permanently as ordinary GPIO pins in UICR.
+ */
+&uicr {
+    nfct-pins-as-gpios;
+};
+
+/* The NFC peripheral is not used by this keyboard. */
+&nfct {
+    status = "disabled";
 };

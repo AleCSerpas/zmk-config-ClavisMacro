@@ -10,26 +10,29 @@
         compatible = "zmk,keymap";
 
         /*
-         * LAYER 0 — NAVIGATION
+         * LAYER 0 — HARDWARE TEST / BASE
          *
-         * ┌─────────────┬─────────────┬─────────────┐
-         * │ PrintScreen │ Scroll Lock │ Pause/Break │
-         * ├─────────────┼─────────────┼─────────────┤
-         * │ Insert      │ Home        │ Page Up     │
-         * ├─────────────┼─────────────┼─────────────┤
-         * │ Delete      │ End         │ Page Down   │
-         * └─────────────┴─────────────┴─────────────┘
+         * ┌─────┬─────┬─────┐
+         * │  1  │  2  │  3  │
+         * ├─────┼─────┼─────┤
+         * │  4  │  5  │  6  │
+         * ├─────┼─────┼─────┤
+         * │  7  │  8  │  9  │
+         * └─────┴─────┴─────┘
          *
-         * Encoder button → Bluetooth layer
-         * Encoder rotation → Volume
+         * Encoder button: go to Bluetooth layer
+         * Encoder rotation: volume up/down
+         *
+         * Numbers are used temporarily because every key gives
+         * visible output in Windows and in an iPhone text field.
          */
         base_layer {
-            display-name = "Navigation";
+            display-name = "Base";
 
             bindings = <
-                &kp PRINTSCREEN    &kp SCROLLLOCK    &kp PAUSE_BREAK
-                &kp INSERT         &kp HOME          &kp PAGE_UP
-                &kp DELETE         &kp END           &kp PAGE_DOWN
+                &kp N1    &kp N2    &kp N3
+                &kp N4    &kp N5    &kp N6
+                &kp N7    &kp N8    &kp N9
 
                 &to BT
             >;
@@ -42,24 +45,24 @@
         /*
          * LAYER 1 — BLUETOOTH
          *
-         * ┌──────────┬──────────┬──────────┐
-         * │ BT 0     │ BT 1     │ BT 2     │
-         * ├──────────┼──────────┼──────────┤
-         * │ BT Prev  │ BT Clear │ BT Next  │
-         * ├──────────┼──────────┼──────────┤
-         * │ BT 3     │ BT 4     │ Base     │
-         * └──────────┴──────────┴──────────┘
+         * ┌────────┬────────┬────────┐
+         * │ BT 0   │ BT 1   │ BT 2   │
+         * ├────────┼────────┼────────┤
+         * │ Prev   │ Clear  │ Next   │
+         * ├────────┼────────┼────────┤
+         * │ BT 3   │ BT 4   │ Base   │
+         * └────────┴────────┴────────┘
          *
-         * Encoder button → Base layer
-         * Encoder rotation → Volume
+         * Encoder button: return to Base
+         * Encoder rotation: volume up/down
          */
         bluetooth_layer {
             display-name = "Bluetooth";
 
             bindings = <
-                &bt BT_SEL 0       &bt BT_SEL 1       &bt BT_SEL 2
-                &bt BT_PRV         &bt BT_CLR         &bt BT_NXT
-                &bt BT_SEL 3       &bt BT_SEL 4       &to BASE
+                &bt BT_SEL 0    &bt BT_SEL 1    &bt BT_SEL 2
+                &bt BT_PRV      &bt BT_CLR      &bt BT_NXT
+                &bt BT_SEL 3    &bt BT_SEL 4    &to BASE
 
                 &to BASE
             >;
