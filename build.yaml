@@ -1,6 +1,6 @@
 include:
-  - board: nice_nano_v2
+  - board: nice_nano//zmk
     shield: clavismacronicenano
 
-  - board: xiao_ble
+  - board: xiao_ble//zmk
     shield: clavismacroxiao
