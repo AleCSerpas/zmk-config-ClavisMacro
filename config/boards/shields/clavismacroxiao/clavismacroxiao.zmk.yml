@@ -1,0 +1,9 @@
+file_format: "1"
+id: clavismacroxiao
+name: ClavisMacro XIAO
+type: shield
+url: https://github.com/
+requires:
+  - xiao
+features:
+  - keys
