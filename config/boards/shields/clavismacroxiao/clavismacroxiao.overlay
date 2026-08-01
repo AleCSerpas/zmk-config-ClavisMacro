@@ -1,6 +1,6 @@
 #include <dt-bindings/zmk/matrix_transform.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
-#include <zephyr/dt-bindings/display/panel.h>
+
 #include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 
 / {
@@ -72,7 +72,6 @@
             mipi-max-frequency = <4000000>;
             mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
 
-            pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
             colmod = <0x55>;
 
             width = <240>;
