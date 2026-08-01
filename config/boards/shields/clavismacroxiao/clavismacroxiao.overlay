@@ -8,7 +8,7 @@
         zmk,kscan = &kscan0;
         zmk,matrix-transform = &default_transform;
         zephyr,display = &clavis_st7789;
-        zmk,display-led = &lcd_backlight;
+        zmk,display-led = &lcd_bl;
     };
 
     /*
