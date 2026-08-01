@@ -73,6 +73,7 @@
             mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
 
             pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+            colmod = <0x55>;
 
             width = <240>;
             height = <240>;
