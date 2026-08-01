@@ -1,0 +1,29 @@
+#include <zephyr/dt-bindings/led/led.h>
+
+/ {
+    chosen {
+        zmk,underglow = &clavis_rgb;
+    };
+
+    /*
+     * 10 SK6812 RGB
+     * DATA = D18 = P0.08
+     */
+    clavis_rgb: ws2812 {
+        compatible = "worldsemi,ws2812-gpio";
+
+        gpios = <&gpio0 8 GPIO_ACTIVE_HIGH>;
+
+        chain-length = <10>;
+
+        color-mapping = <
+            LED_COLOR_ID_GREEN
+            LED_COLOR_ID_RED
+            LED_COLOR_ID_BLUE
+        >;
+
+        reset-delay = <80>;
+
+        status = "okay";
+    };
+};

@@ -1,11 +1,20 @@
 #include <dt-bindings/zmk/matrix_transform.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/display/panel.h>
+#include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 
 / {
     chosen {
         zmk,kscan = &kscan0;
         zmk,matrix-transform = &default_transform;
+        zephyr,display = &clavis_st7789;
+        zmk,display-led = &lcd_backlight;
     };
 
+    /*
+     * Kscan temporal.
+     * Todavia no lee los sensores Hall.
+     */
     kscan0: kscan {
         compatible = "zmk,kscan-mock";
         rows = <3>;
@@ -15,7 +24,6 @@
 
     default_transform: matrix_transform {
         compatible = "zmk,matrix-transform";
-
         rows = <3>;
         columns = <3>;
 
@@ -25,4 +33,90 @@
             RC(2, 0) RC(2, 1) RC(2, 2)
         >;
     };
+
+    /*
+     * Backlight de la pantalla.
+     * BL = D5 = P0.05
+     */
+    lcd_backlight: lcd_backlight {
+        compatible = "gpio-leds";
+
+        lcd_bl: lcd_bl {
+            gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+            label = "ST7789 Backlight";
+        };
+    };
+
+    /*
+     * Pantalla:
+     * DC  = D14 = P0.09
+     * RST = D15 = P0.10
+     */
+    clavis_mipi_dbi {
+        compatible = "zephyr,mipi-dbi-spi";
+
+        spi-dev = <&xiao_spi>;
+
+        dc-gpios = <&gpio0 9 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
+
+        write-only;
+
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        clavis_st7789: st7789v@0 {
+            compatible = "sitronix,st7789v";
+            reg = <0>;
+
+            mipi-max-frequency = <4000000>;
+            mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+
+            pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+
+            width = <240>;
+            height = <240>;
+
+            x-offset = <0>;
+            y-offset = <0>;
+
+            vcom = <0x19>;
+            gctrl = <0x35>;
+            vrhs = <0x12>;
+            vdvs = <0x20>;
+            mdac = <0x00>;
+            lcm = <0x2c>;
+            gamma = <0x01>;
+
+            porch-param = [0c 0c 00 33 33];
+            cmd2en-param = [5a 69 02 01];
+            pwctrl1-param = [a4 a1];
+
+            pvgam-param = [
+                d0 04 0d 11 13 2b 3f
+                54 4c 18 0d 0b 1f 23
+            ];
+
+            nvgam-param = [
+                d0 04 0c 11 13 2c 3f
+                44 51 2f 1f 1f 20 23
+            ];
+
+            ram-param = [00 f0];
+            rgb-param = [cd 08 14];
+
+            status = "okay";
+        };
+    };
+};
+
+/*
+ * SPI:
+ * CLK  = D8
+ * MOSI = D10
+ * CS   = D19 = P1.07
+ */
+&xiao_spi {
+    status = "okay";
+    cs-gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
 };
