@@ -9,73 +9,76 @@
 / {
     behaviors {
         /*
-         * Variable sensor-rotation wrapper for RGB underglow.
-         *
-         * The two command values are supplied from each layer's
-         * sensor-bindings.  This avoids embedding the RGB commands inside
-         * a second sensor behavior and sends the command directly as
-         * param1 to &rgb_ug.
+         * EC0 en Base:
+         * horario     = siguiente efecto RGB
+         * antihorario = efecto RGB anterior
          */
-        rgb_encoder: rgb_encoder {
-            compatible = "zmk,behavior-sensor-rotate-var";
-            #sensor-binding-cells = <2>;
+        rgb_effect_encoder: rgb_effect_encoder {
+            compatible = "zmk,behavior-sensor-rotate";
+            #sensor-binding-cells = <0>;
 
-            bindings = <&rgb_ug>, <&rgb_ug>;
-            tap-ms = <5>;
+            bindings =
+                <&rgb_ug RGB_EFF>,
+                <&rgb_ug RGB_EFR>;
+        };
+
+        /*
+         * EC0 en RGB:
+         * horario     = aumentar brillo
+         * antihorario = disminuir brillo
+         */
+        rgb_brightness_encoder: rgb_brightness_encoder {
+            compatible = "zmk,behavior-sensor-rotate";
+            #sensor-binding-cells = <0>;
+
+            bindings =
+                <&rgb_ug RGB_BRI>,
+                <&rgb_ug RGB_BRD>;
         };
     };
 
     keymap {
         compatible = "zmk,keymap";
 
-        /*
-         * Base layer
-         *
-         * EC0 rotation = next/previous RGB effect
-         * EC0 press    = toggle RGB control layer
-         * EC1 rotation = volume up/down
-         * EC1 press    = mute
-         */
         base_layer {
             display-name = "Base";
 
             bindings = <
-                &kp N1          &kp N2       &kp N3
-                &kp N4          &kp N5       &kp N6
-                &kp N7          &kp N8       &kp N9
+                &kp N1       &kp N2       &kp N3
+                &kp N4       &kp N5       &kp N6
+                &kp N7       &kp N8       &kp N9
 
-                &tog LAYER_RGB  &kp C_MUTE
+                &tog LAYER_RGB   &kp C_MUTE
             >;
 
-            /* Sensor order: EC0, then EC1. */
+            /*
+             * Orden de sensores:
+             * EC0 = RGB
+             * EC1 = volumen
+             */
             sensor-bindings = <
-                &rgb_encoder RGB_EFF_CMD RGB_EFR_CMD
+                &rgb_effect_encoder
                 &inc_dec_kp C_VOL_UP C_VOL_DN
             >;
         };
 
-        /*
-         * RGB layer
-         *
-         * EC0 rotation = brightness up/down
-         * EC0 press    = return to Base
-         * EC1 rotation = volume up/down
-         * EC1 press    = mute
-         */
         rgb_layer {
             display-name = "RGB";
 
             bindings = <
-                &trans          &trans       &trans
-                &trans          &trans       &trans
-                &trans          &trans       &trans
+                &trans         &trans         &trans
+                &trans         &trans         &trans
+                &trans         &trans         &trans
 
-                &tog LAYER_RGB  &kp C_MUTE
+                &tog LAYER_RGB   &trans
             >;
 
-            /* Sensor order: EC0, then EC1. */
+            /*
+             * EC0 = brillo RGB
+             * EC1 = volumen
+             */
             sensor-bindings = <
-                &rgb_encoder RGB_BRI_CMD RGB_BRD_CMD
+                &rgb_brightness_encoder
                 &inc_dec_kp C_VOL_UP C_VOL_DN
             >;
         };
