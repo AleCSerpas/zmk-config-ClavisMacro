@@ -175,14 +175,18 @@
             width = <240>;
             height = <240>;
             x-offset = <0>;
-            y-offset = <0>;
+            y-offset = <80>;
 
             vcom = <0x19>;
             gctrl = <0x35>;
             vrhs = <0x12>;
             vdvs = <0x20>;
 
-            /* Rotate the panel by 180 degrees. */
+            /*
+             * Rotate the panel by 180 degrees.
+             * This 240x240 ST7789 uses the opposite 240-row RAM window
+             * after rotation, so y-offset must be 80.
+             */
             mdac = <0xC0>;
 
             lcm = <0x2c>;
