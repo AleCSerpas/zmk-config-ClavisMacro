@@ -4,41 +4,25 @@
 
 / {
     chosen {
-        /*
-         * Kscan compuesto:
-         *
-         * - 9 posiciones Hall simuladas
-         * - botón de EC0
-         * - botón de EC1
-         */
         zmk,kscan = &kscan0;
         zmk,matrix-transform = &default_transform;
 
-        /*
-         * Pantalla principal.
-         */
         zephyr,display = &clavis_st7789;
-
-        /*
-         * LED hijo correspondiente al backlight.
-         */
         zmk,display-led = &lcd_bl;
     };
 
     /*
-     * Kscan compuesto de 4 filas x 3 columnas.
+     * Combined logical scanner:
      *
-     * Filas 0–2: nueve teclas Hall temporales.
-     * Fila 3:
-     *   columna 0 = botón EC0
-     *   columna 1 = botón EC1
+     * Rows 0-2: nine temporary Hall positions.
+     * Row 3, column 0: EC0 push switch.
+     * Row 3, column 1: EC1 push switch.
      */
     kscan0: kscan_composite {
         compatible = "zmk,kscan-composite";
 
         rows = <4>;
         columns = <3>;
-
         wakeup-source;
 
         hall_keys {
@@ -52,27 +36,22 @@
     };
 
     /*
-     * Matriz Hall temporal.
-     *
-     * Después se reemplazará con el driver del CD74HC4067
-     * y el sistema Rapid Trigger.
+     * Temporary Hall scanner.
+     * This will later be replaced by the CD74HC4067/Hall driver.
      */
     hall_mock: hall_mock {
         compatible = "zmk,kscan-mock";
 
         rows = <3>;
         columns = <3>;
-
         events = <>;
     };
 
     /*
-     * Botones de los encoders.
+     * Encoder push switches, active-low to GND:
      *
-     * EC0 SW = XIAO D4  = P0.04
-     * EC1 SW = XIAO D17 = P1.03
-     *
-     * Cada botón conecta el GPIO a GND al presionarlo.
+     * EC0 SW = D4  = P0.04
+     * EC1 SW = D17 = P1.03
      */
     encoder_button_kscan: encoder_button_kscan {
         compatible = "zmk,kscan-gpio-direct";
@@ -82,22 +61,21 @@
         debounce-press-ms = <5>;
         debounce-release-ms = <5>;
 
-        input-gpios
-            = <&gpio0 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-            , <&gpio1 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-            ;
+        input-gpios =
+            <&gpio0 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>,
+            <&gpio1 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
     };
 
     /*
-     * Posiciones lógicas del keymap:
+     * Logical key order:
      *
-     *   0   1   2
-     *   3   4   5
-     *   6   7   8
-     *   9  10
+     *  0   1   2
+     *  3   4   5
+     *  6   7   8
+     *  9  10
      *
-     * 9  = botón EC0
-     * 10 = botón EC1
+     * 9  = EC0 push switch
+     * 10 = EC1 push switch
      */
     default_transform: matrix_transform {
         compatible = "zmk,matrix-transform";
@@ -114,11 +92,11 @@
     };
 
     /*
-     * Encoder 0 — derecho / volumen
+     * EC0 — RGB control
      *
-     * A  = XIAO D1 = P0.03
-     * B  = XIAO D2 = P0.28
-     * SW = XIAO D4 = P0.04
+     * A  = D1 = P0.03
+     * B  = D2 = P0.28
+     * SW = D4 = P0.04
      */
     encoder0: encoder0 {
         compatible = "alps,ec11";
@@ -126,21 +104,16 @@
         a-gpios = <&gpio0 3  (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
         b-gpios = <&gpio0 28 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 
-        /*
-         * EC11 típico:
-         * 80 transiciones de cuadratura por vuelta.
-         */
         steps = <80>;
-
         status = "okay";
     };
 
     /*
-     * Encoder 1 — izquierdo / capas y zoom
+     * EC1 — volume control
      *
-     * A  = XIAO D12 = P0.19
-     * B  = XIAO D13 = P1.01
-     * SW = XIAO D17 = P1.03
+     * A  = D12 = P0.19
+     * B  = D13 = P1.01
+     * SW = D17 = P1.03
      */
     encoder1: encoder1 {
         compatible = "alps,ec11";
@@ -149,34 +122,22 @@
         b-gpios = <&gpio1 1  (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 
         steps = <80>;
-
         status = "okay";
     };
 
     /*
-     * El orden de esta lista debe coincidir con el orden
-     * de sensor-bindings en cada capa:
-     *
-     * 1. encoder0
-     * 2. encoder1
+     * sensor-bindings in the keymap follow this exact order:
+     * 1. EC0
+     * 2. EC1
      */
     sensors: sensors {
         compatible = "zmk,keymap-sensors";
 
         sensors = <&encoder0 &encoder1>;
-
-        /*
-         * 20 eventos por vuelta:
-         * aproximadamente uno por detent del EC11.
-         */
         triggers-per-rotation = <20>;
     };
 
-    /*
-     * Backlight ST7789
-     *
-     * XIAO D5 = P0.05
-     */
+    /* ST7789 backlight: D5 = P0.05 */
     lcd_backlight: lcd_backlight {
         compatible = "gpio-leds";
 
@@ -187,7 +148,7 @@
     };
 
     /*
-     * Pantalla ST7789 mediante MIPI DBI.
+     * ST7789 MIPI-DBI wrapper:
      *
      * DC    = D14 = P0.09
      * RESET = D15 = P0.10
@@ -196,7 +157,6 @@
         compatible = "zephyr,mipi-dbi-spi";
 
         spi-dev = <&xiao_spi>;
-
         dc-gpios = <&gpio0 9 GPIO_ACTIVE_HIGH>;
         reset-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
 
@@ -214,7 +174,6 @@
 
             width = <240>;
             height = <240>;
-
             x-offset = <0>;
             y-offset = <0>;
 
@@ -223,18 +182,11 @@
             vrhs = <0x12>;
             vdvs = <0x20>;
 
-            /*
-             * Rotación de 180 grados.
-             */
+            /* Rotate the panel by 180 degrees. */
             mdac = <0xC0>;
 
             lcm = <0x2c>;
-
-            /*
-             * RGB565 / 16 bits.
-             */
             colmod = <0x55>;
-
             gamma = <0x01>;
 
             porch-param = [0c 0c 00 33 33];
@@ -260,22 +212,21 @@
 };
 
 /*
- * SPI de la pantalla:
- *
+ * Screen SPI:
  * SCLK = D8  = P1.13
  * MOSI = D10 = P1.15
  * CS   = D19 = P1.07
  */
 &xiao_spi {
     status = "okay";
-
     cs-gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
 };
 
-/*
- * D14 y D15 son originalmente NFC1 y NFC2.
- * Se convierten en GPIO normales.
- */
+/* D14/P0.09 and D15/P0.10 are used as GPIO instead of NFC. */
 &uicr {
     nfct-pins-as-gpios;
+};
+
+&nfct {
+    status = "disabled";
 };
