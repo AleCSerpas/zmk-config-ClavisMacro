@@ -1,21 +1,27 @@
 #include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
 #include <dt-bindings/led/led.h>
 
-/ {
-    chosen {
-        zmk,underglow = &clavis_led_strip;
-    };
-};
+/*
+ * ============================================================
+ * RGB UNDERGLOW — XIAO nRF52840
+ * ============================================================
+ *
+ * Diez SK6812MINI-E:
+ *
+ * DATA = D18 = P1.05
+ *
+ * Se usa SPIM3 solamente como generador de la señal serial.
+ * Físicamente solo se conecta MOSI al pin DATA de las LEDs.
+ */
 
 &pinctrl {
-    clavis_rgb_spi3_default: clavis_rgb_spi3_default {
+    clavis_spi3_default: clavis_spi3_default {
         group1 {
-            /* SK6812 data: D18 = P1.05 */
             psels = <NRF_PSEL(SPIM_MOSI, 1, 5)>;
         };
     };
 
-    clavis_rgb_spi3_sleep: clavis_rgb_spi3_sleep {
+    clavis_spi3_sleep: clavis_spi3_sleep {
         group1 {
             psels = <NRF_PSEL(SPIM_MOSI, 1, 5)>;
             low-power-enable;
@@ -27,27 +33,43 @@
     compatible = "nordic,nrf-spim";
     status = "okay";
 
-    pinctrl-0 = <&clavis_rgb_spi3_default>;
-    pinctrl-1 = <&clavis_rgb_spi3_sleep>;
+    pinctrl-0 = <&clavis_spi3_default>;
+    pinctrl-1 = <&clavis_spi3_sleep>;
     pinctrl-names = "default", "sleep";
 
     clavis_led_strip: ws2812@0 {
         compatible = "worldsemi,ws2812-spi";
 
+        /*
+         * Requerido por el binding SPI, aunque el driver
+         * WS2812 no usa un chip-select físico.
+         */
         reg = <0>;
+
+        /*
+         * Configuración oficial de ZMK para WS2812/SK6812
+         * mediante SPI.
+         */
         spi-max-frequency = <4000000>;
 
         chain-length = <10>;
+
         spi-one-frame = <0x70>;
         spi-zero-frame = <0x40>;
 
+        /*
+         * SK6812MINI-E en orden GRB.
+         */
         color-mapping = <
             LED_COLOR_ID_GREEN
             LED_COLOR_ID_RED
             LED_COLOR_ID_BLUE
         >;
+    };
+};
 
-        reset-delay = <80>;
-        status = "okay";
+/ {
+    chosen {
+        zmk,underglow = &clavis_led_strip;
     };
 };

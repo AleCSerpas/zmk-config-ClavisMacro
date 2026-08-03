@@ -1,4 +1,5 @@
 #include <dt-bindings/zmk/matrix_transform.h>
+
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 
@@ -12,17 +13,20 @@
     };
 
     /*
-     * Combined logical scanner:
+     * ========================================================
+     * KSCAN COMPUESTO
+     * ========================================================
      *
-     * Rows 0-2: nine temporary Hall positions.
-     * Row 3, column 0: EC0 push switch.
-     * Row 3, column 1: EC1 push switch.
+     * Filas 0–2 = nueve teclas Hall.
+     * Fila 3    = botones de los dos encoders.
      */
+
     kscan0: kscan_composite {
         compatible = "zmk,kscan-composite";
 
         rows = <4>;
         columns = <3>;
+
         wakeup-source;
 
         hall_keys {
@@ -36,23 +40,24 @@
     };
 
     /*
-     * Temporary Hall scanner.
-     * This will later be replaced by the CD74HC4067/Hall driver.
+     * Temporal hasta portar HAL403 + CD74HC4067 a ZMK.
      */
     hall_mock: hall_mock {
         compatible = "zmk,kscan-mock";
 
         rows = <3>;
         columns = <3>;
+
         events = <>;
     };
 
     /*
-     * Encoder push switches, active-low to GND:
+     * Botones SW:
      *
      * EC0 SW = D4  = P0.04
      * EC1 SW = D17 = P1.03
      */
+
     encoder_button_kscan: encoder_button_kscan {
         compatible = "zmk,kscan-gpio-direct";
 
@@ -61,22 +66,22 @@
         debounce-press-ms = <5>;
         debounce-release-ms = <5>;
 
-        input-gpios =
-            <&gpio0 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>,
-            <&gpio1 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        input-gpios
+            = <&gpio0 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+            , <&gpio1 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+            ;
     };
 
     /*
-     * Logical key order:
+     * ========================================================
+     * POSICIONES LÓGICAS
+     * ========================================================
      *
-     *  0   1   2
-     *  3   4   5
-     *  6   7   8
-     *  9  10
-     *
-     * 9  = EC0 push switch
-     * 10 = EC1 push switch
+     * 0–8  = nueve teclas Hall.
+     * 9    = botón EC0.
+     * 10   = botón EC1.
      */
+
     default_transform: matrix_transform {
         compatible = "zmk,matrix-transform";
 
@@ -92,52 +97,77 @@
     };
 
     /*
-     * EC0 — RGB control
+     * ========================================================
+     * ENCODER 0 — RGB
+     * ========================================================
      *
      * A  = D1 = P0.03
      * B  = D2 = P0.28
      * SW = D4 = P0.04
      */
+
     encoder0: encoder0 {
         compatible = "alps,ec11";
 
-        a-gpios = <&gpio0 3  (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
-        b-gpios = <&gpio0 28 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        a-gpios = <&gpio0 3
+            (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+
+        b-gpios = <&gpio0 28
+            (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 
         steps = <80>;
+
         status = "okay";
     };
 
     /*
-     * EC1 — volume control
+     * ========================================================
+     * ENCODER 1 — VOLUMEN
+     * ========================================================
      *
      * A  = D12 = P0.19
      * B  = D13 = P1.01
      * SW = D17 = P1.03
      */
+
     encoder1: encoder1 {
         compatible = "alps,ec11";
 
-        a-gpios = <&gpio0 19 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
-        b-gpios = <&gpio1 1  (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        a-gpios = <&gpio0 19
+            (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+
+        b-gpios = <&gpio1 1
+            (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 
         steps = <80>;
+
         status = "okay";
     };
 
     /*
-     * sensor-bindings in the keymap follow this exact order:
-     * 1. EC0
-     * 2. EC1
+     * El orden aquí controla el orden de sensor-bindings:
+     *
+     * sensor 0 = EC0
+     * sensor 1 = EC1
      */
-    sensors: sensors {
+
+    clavis_sensors: clavis_sensors {
         compatible = "zmk,keymap-sensors";
 
         sensors = <&encoder0 &encoder1>;
+
         triggers-per-rotation = <20>;
     };
 
-    /* ST7789 backlight: D5 = P0.05 */
+    /*
+     * ========================================================
+     * BACKLIGHT DE LA ST7789
+     * ========================================================
+     *
+     * Se conserva exactamente como GPIO.
+     * No estamos implementando PWM ni control variable.
+     */
+
     lcd_backlight: lcd_backlight {
         compatible = "gpio-leds";
 
@@ -148,15 +178,16 @@
     };
 
     /*
-     * ST7789 MIPI-DBI wrapper:
-     *
-     * DC    = D14 = P0.09
-     * RESET = D15 = P0.10
+     * ========================================================
+     * ST7789 240 × 240
+     * ========================================================
      */
+
     clavis_mipi_dbi {
         compatible = "zephyr,mipi-dbi-spi";
 
         spi-dev = <&xiao_spi>;
+
         dc-gpios = <&gpio0 9 GPIO_ACTIVE_HIGH>;
         reset-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
 
@@ -167,6 +198,7 @@
 
         clavis_st7789: st7789v@0 {
             compatible = "sitronix,st7789v";
+
             reg = <0>;
 
             mipi-max-frequency = <4000000>;
@@ -174,6 +206,11 @@
 
             width = <240>;
             height = <240>;
+
+            /*
+             * Rotación 180° con la ventana correcta de memoria
+             * para este panel 240 × 240.
+             */
             x-offset = <0>;
             y-offset = <80>;
 
@@ -182,11 +219,6 @@
             vrhs = <0x12>;
             vdvs = <0x20>;
 
-            /*
-             * Rotate the panel by 180 degrees.
-             * This 240x240 ST7789 uses the opposite 240-row RAM window
-             * after rotation, so y-offset must be 80.
-             */
             mdac = <0xC0>;
 
             lcm = <0x2c>;
@@ -216,21 +248,24 @@
 };
 
 /*
- * Screen SPI:
- * SCLK = D8  = P1.13
+ * SPI de la pantalla:
+ *
  * MOSI = D10 = P1.15
+ * SCLK = D8  = P1.13
  * CS   = D19 = P1.07
  */
+
 &xiao_spi {
     status = "okay";
+
     cs-gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
 };
 
-/* D14/P0.09 and D15/P0.10 are used as GPIO instead of NFC. */
+/*
+ * D14/P0.09 y D15/P0.10 se usan como GPIO,
+ * no como NFC.
+ */
+
 &uicr {
     nfct-pins-as-gpios;
-};
-
-&nfct {
-    status = "disabled";
 };

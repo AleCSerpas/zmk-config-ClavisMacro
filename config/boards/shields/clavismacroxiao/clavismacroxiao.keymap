@@ -7,14 +7,26 @@
 #define LAYER_RGB  1
 
 / {
+    /*
+     * ========================================================
+     * COMPORTAMIENTOS DE ROTACIÓN RGB
+     * ========================================================
+     */
+
     behaviors {
         /*
          * EC0 en Base:
-         * horario     = siguiente efecto RGB
-         * antihorario = efecto RGB anterior
+         *
+         * Horario:
+         *   siguiente efecto RGB.
+         *
+         * Antihorario:
+         *   efecto RGB anterior.
          */
+
         rgb_effect_encoder: rgb_effect_encoder {
             compatible = "zmk,behavior-sensor-rotate";
+
             #sensor-binding-cells = <0>;
 
             bindings =
@@ -23,12 +35,18 @@
         };
 
         /*
-         * EC0 en RGB:
-         * horario     = aumentar brillo
-         * antihorario = disminuir brillo
+         * EC0 en la capa RGB:
+         *
+         * Horario:
+         *   aumentar brillo.
+         *
+         * Antihorario:
+         *   disminuir brillo.
          */
+
         rgb_brightness_encoder: rgb_brightness_encoder {
             compatible = "zmk,behavior-sensor-rotate";
+
             #sensor-binding-cells = <0>;
 
             bindings =
@@ -40,43 +58,68 @@
     keymap {
         compatible = "zmk,keymap";
 
+        /*
+         * ====================================================
+         * CAPA 0 — BASE
+         * ====================================================
+         *
+         * EC0:
+         *   giro   = efectos RGB
+         *   botón  = entrar a capa RGB
+         *
+         * EC1:
+         *   giro   = volumen
+         *   botón  = mute
+         */
+
         base_layer {
             display-name = "Base";
 
             bindings = <
-                &kp N1       &kp N2       &kp N3
-                &kp N4       &kp N5       &kp N6
-                &kp N7       &kp N8       &kp N9
+                &kp N1          &kp N2          &kp N3
+                &kp N4          &kp N5          &kp N6
+                &kp N7          &kp N8          &kp N9
 
-                &tog LAYER_RGB   &kp C_MUTE
+                &tog LAYER_RGB  &kp C_MUTE
             >;
 
             /*
-             * Orden de sensores:
-             * EC0 = RGB
-             * EC1 = volumen
+             * El orden coincide con:
+             *
+             * sensors = <&encoder0 &encoder1>;
              */
+
             sensor-bindings = <
                 &rgb_effect_encoder
                 &inc_dec_kp C_VOL_UP C_VOL_DN
             >;
         };
 
+        /*
+         * ====================================================
+         * CAPA 1 — RGB
+         * ====================================================
+         *
+         * EC0:
+         *   giro   = brillo RGB
+         *   botón  = regresar a Base
+         *
+         * EC1:
+         *   giro   = volumen
+         *   botón  = mute heredado desde Base
+         */
+
         rgb_layer {
             display-name = "RGB";
 
             bindings = <
-                &trans         &trans         &trans
-                &trans         &trans         &trans
-                &trans         &trans         &trans
+                &trans          &trans          &trans
+                &trans          &trans          &trans
+                &trans          &trans          &trans
 
-                &tog LAYER_RGB   &trans
+                &tog LAYER_RGB  &trans
             >;
 
-            /*
-             * EC0 = brillo RGB
-             * EC1 = volumen
-             */
             sensor-bindings = <
                 &rgb_brightness_encoder
                 &inc_dec_kp C_VOL_UP C_VOL_DN
