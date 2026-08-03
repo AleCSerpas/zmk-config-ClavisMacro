@@ -156,7 +156,7 @@
 
         sensors = <&encoder0 &encoder1>;
 
-        triggers-per-rotation = <20>;
+        triggers-per-rotation = <80>;
     };
 
     /*
