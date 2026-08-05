@@ -1,0 +1,10 @@
+# Required by the custom Clavis RGB Matrix engine.
+CONFIG_SPI=y
+CONFIG_LED_STRIP=y
+CONFIG_WS2812_STRIP_SPI=y
+CONFIG_SETTINGS=y
+
+# Do not run ZMK's built-in underglow worker at the same time.
+CONFIG_ZMK_RGB_UNDERGLOW=n
+
+# Remove/comment every other CONFIG_ZMK_RGB_UNDERGLOW_* option during this test.
