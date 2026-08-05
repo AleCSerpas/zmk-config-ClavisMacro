@@ -6,5 +6,4 @@ include:
 
   - board: xiao_ble//zmk
     shield: clavismacroxiao
-    snippet: zmk-usb-logging
     artifact-name: clavismacroxiao-xiao-ble-logging
