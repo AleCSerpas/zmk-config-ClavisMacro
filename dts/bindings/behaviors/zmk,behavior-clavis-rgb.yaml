@@ -1,5 +1,3 @@
-description: ClavisMacro RGB Matrix behavior
-
+description: Clavis RGB Matrix behavior
 compatible: "zmk,behavior-clavis-rgb"
-
 include: two_param.yaml
