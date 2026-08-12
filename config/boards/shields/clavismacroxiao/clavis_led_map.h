@@ -47,9 +47,9 @@ static const struct clavis_led_position clavis_led_map[CLAVIS_RGB_LED_COUNT] = {
     [1] = {.x = 112, .y = 32,  .key_id = 1,                 .zone = CLAVIS_LED_ZONE_KEYS},
     [2] = {.x = 192, .y = 32,  .key_id = 2,                 .zone = CLAVIS_LED_ZONE_KEYS},
 
-    [3] = {.x = 32,  .y = 112, .key_id = 3,                 .zone = CLAVIS_LED_ZONE_KEYS},
+    [3] = {.x = 192, .y = 112, .key_id = 5,                 .zone = CLAVIS_LED_ZONE_KEYS},
     [4] = {.x = 112, .y = 112, .key_id = 4,                 .zone = CLAVIS_LED_ZONE_KEYS},
-    [5] = {.x = 192, .y = 112, .key_id = 5,                 .zone = CLAVIS_LED_ZONE_KEYS},
+    [5] = {.x = 32,  .y = 112, .key_id = 3,                 .zone = CLAVIS_LED_ZONE_KEYS},
 
     [6] = {.x = 32,  .y = 192, .key_id = 6,                 .zone = CLAVIS_LED_ZONE_KEYS},
     [7] = {.x = 112, .y = 192, .key_id = 7,                 .zone = CLAVIS_LED_ZONE_KEYS},
