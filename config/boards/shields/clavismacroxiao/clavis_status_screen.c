@@ -23,7 +23,8 @@
 #include <zmk/battery.h>
 #include <zmk/display/status_screen.h>
 #include <zmk/keymap.h>
-#include <zmk/rgb_underglow.h>
+
+#include "clavis_rgb_engine.h"
 
 #define UI_UPDATE_PERIOD_MS 250
 #define VOLUME_PLACEHOLDER 36
@@ -100,14 +101,20 @@ static void update_layer(void) {
 }
 
 static void update_rgb(void) {
-    bool rgb_on = false;
-    struct zmk_led_hsb hsb = zmk_rgb_underglow_calc_brt(0);
+    struct clavis_rgb_state rgb_state = {0};
 
-    if (zmk_rgb_underglow_get_state(&rgb_on) < 0) {
-        rgb_on = false;
+    if (clavis_rgb_get_state(&rgb_state) < 0) {
+        lv_arc_set_value(rgb_arc, 0);
+        lv_label_set_text(rgb_label, "0%");
+        lv_obj_set_style_arc_color(
+            rgb_arc,
+            lv_color_hex(COLOR_TRACK),
+            LV_PART_INDICATOR
+        );
+        return;
     }
 
-    uint8_t brightness = rgb_on ? CLAMP(hsb.b, 0, 100) : 0;
+    uint8_t brightness = rgb_state.on ? CLAMP(rgb_state.brightness, 0, 100) : 0;
 
     char text[8] = {};
     snprintf(text, sizeof(text), "%u%%", brightness);
@@ -115,16 +122,25 @@ static void update_rgb(void) {
     lv_arc_set_value(rgb_arc, brightness);
     lv_label_set_text(rgb_label, text);
 
-    if (rgb_on) {
-        /*
-         * The ring uses the configured underglow hue and saturation.
-         * Animated effects can contain several colors, but this still gives
-         * the user a stable visual reference for the selected RGB color.
-         */
-        lv_color_t rgb_color = lv_color_hsv_to_rgb(hsb.h % 360, hsb.s, 100);
-        lv_obj_set_style_arc_color(rgb_arc, rgb_color, LV_PART_INDICATOR);
+    if (rgb_state.on) {
+        lv_color_t rgb_color =
+            lv_color_hsv_to_rgb(
+                rgb_state.hue % 360,
+                rgb_state.saturation,
+                100
+            );
+
+        lv_obj_set_style_arc_color(
+            rgb_arc,
+            rgb_color,
+            LV_PART_INDICATOR
+        );
     } else {
-        lv_obj_set_style_arc_color(rgb_arc, lv_color_hex(COLOR_TRACK), LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(
+            rgb_arc,
+            lv_color_hex(COLOR_TRACK),
+            LV_PART_INDICATOR
+        );
     }
 }
 
