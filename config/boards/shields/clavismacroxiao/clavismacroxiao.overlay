@@ -4,6 +4,7 @@
 #include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 #include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/adc/nrf-saadc.h>
+#include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
 
 / {
     chosen {
@@ -325,8 +326,43 @@
  * CS   = D19 = P1.07
  */
 
+
+/*
+ * ========================================================
+ * SPI ST7789 — SIN MISO
+ * ========================================================
+ *
+ * P1.14 / D9 está reservado para S3 del CD74HC4067.
+ * La ST7789 es write-only, por lo que no necesita MISO.
+ */
+
+&pinctrl {
+    clavis_tft_spi_default: clavis_tft_spi_default {
+        group1 {
+            psels = <
+                NRF_PSEL(SPIM_SCK, 1, 13)
+                NRF_PSEL(SPIM_MOSI, 1, 15)
+            >;
+        };
+    };
+
+    clavis_tft_spi_sleep: clavis_tft_spi_sleep {
+        group1 {
+            psels = <
+                NRF_PSEL(SPIM_SCK, 1, 13)
+                NRF_PSEL(SPIM_MOSI, 1, 15)
+            >;
+            low-power-enable;
+        };
+    };
+};
+
 &xiao_spi {
     status = "okay";
+
+    pinctrl-0 = <&clavis_tft_spi_default>;
+    pinctrl-1 = <&clavis_tft_spi_sleep>;
+    pinctrl-names = "default", "sleep";
 
     cs-gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
 };
