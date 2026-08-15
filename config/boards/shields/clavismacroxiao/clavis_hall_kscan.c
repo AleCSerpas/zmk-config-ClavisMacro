@@ -160,7 +160,7 @@ static int clavis_hall_calibrate(const struct device *dev) {
     /*
      * Give the Hall sensors / analog path a moment to settle after boot.
      */
-    k_sleep(K_MSEC(20));
+    k_sleep(K_MSEC(3000));
 
     for (uint8_t key = 0; key < CLAVIS_HALL_KEY_COUNT; key++) {
         int32_t total = 0;
@@ -444,9 +444,9 @@ static int clavis_hall_init(const struct device *dev) {
      */
     err = clavis_hall_init_gpio(
         &cfg->mux_enable,
-        GPIO_OUTPUT_ACTIVE
+        GPIO_OUTPUT_LOW
     );
-
+    
     if (err < 0) {
         return err;
     }
