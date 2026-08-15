@@ -259,11 +259,17 @@ static int clavis_hall_scan_once(const struct device *dev) {
                 uint32_t row = key_index / 3;
                 uint32_t column = key_index % 3;
 
-                LOG_DBG("Hall %u PRESS travel=%ld",
-                        key_index,
-                        (long)travel);
+                LOG_INF("H%u PRESS raw=%ld rest=%ld filtered=%ld travel=%ld peak=%ld valley=%ld",
+                    key_index,
+                    (long)key->raw,
+                    (long)key->rest,
+                    (long)key->filtered,
+                    (long)travel,
+                    (long)key->peak,
+                    (long)key->valley
+                );
 
-                data->callback(dev, row, column, true);
+                // data->callback(dev, row, column, true);
             }
 
         } else {
@@ -292,11 +298,17 @@ static int clavis_hall_scan_once(const struct device *dev) {
                 uint32_t row = key_index / 3;
                 uint32_t column = key_index % 3;
 
-                LOG_DBG("Hall %u RELEASE travel=%ld",
+                LOG_INF("H%u RELEASE raw=%ld rest=%ld filtered=%ld travel=%ld peak=%ld valley=%ld",
                         key_index,
-                        (long)travel);
+                        (long)key->raw,
+                        (long)key->rest,
+                        (long)key->filtered,
+                        (long)travel,
+                        (long)key->peak,
+                        (long)key->valley
+                    );
 
-                data->callback(dev, row, column, false);
+                // data->callback(dev, row, column, false);
             }
         }
     }
