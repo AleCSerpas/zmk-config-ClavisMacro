@@ -20,7 +20,7 @@
             bindings = <&cl_rgb RGB_EFF>, <&cl_rgb RGB_EFR>;
         };
 
-        rgb_brightness_encoder: rgb_brightness_encoder {
+            rgb_brightness_encoder: rgb_brightness_encoder {
             compatible = "zmk,behavior-sensor-rotate";
             #sensor-binding-cells = <0>;
             bindings = <&cl_rgb RGB_BRI>, <&cl_rgb RGB_BRD>;

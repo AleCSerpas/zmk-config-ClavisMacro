@@ -1,0 +1,60 @@
+description: ClavisMacro 9-key Hall-effect KSCAN through CD74HC4067
+
+compatible: "rvan,clavis-hall-kscan"
+
+properties:
+  io-channels:
+    type: phandle-array
+    required: true
+    description: ADC channel connected to CD74HC4067 COM
+
+  mux-s0-gpios:
+    type: phandle-array
+    required: true
+
+  mux-s1-gpios:
+    type: phandle-array
+    required: true
+
+  mux-s2-gpios:
+    type: phandle-array
+    required: true
+
+  mux-s3-gpios:
+    type: phandle-array
+    required: true
+
+  mux-enable-gpios:
+    type: phandle-array
+    required: true
+    description: Active-low CD74HC4067 enable pin
+
+  actuation-counts:
+    type: int
+    required: true
+    description: Minimum travel from calibrated rest before first press
+
+  rapid-trigger-counts:
+    type: int
+    required: true
+    description: Dynamic movement required for rapid-trigger press/release
+
+  release-counts:
+    type: int
+    required: true
+    description: Near-rest release threshold
+
+  filter-shift:
+    type: int
+    required: true
+    description: EMA filter shift; 2 means one quarter new sample
+
+  scan-period-ms:
+    type: int
+    required: true
+    description: Delay between complete nine-key scans
+
+  mux-settle-us:
+    type: int
+    required: true
+    description: Delay after changing CD74HC4067 channel

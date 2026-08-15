@@ -2,6 +2,8 @@
 
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/adc/nrf-saadc.h>
 
 / {
     chosen {
@@ -30,7 +32,7 @@
         wakeup-source;
 
         hall_keys {
-            kscan = <&hall_mock>;
+            kscan = <&clavis_hall>;
         };
 
         encoder_buttons {
@@ -40,19 +42,64 @@
     };
 
     /*
-     * Temporal hasta portar HAL403 + CD74HC4067 a ZMK.
+     * ========================================================
+     * HALL EFFECT — 9x HAL403 + CD74HC4067
+     * ========================================================
+     *
+     * Arduino reference:
+     *
+     * COM = D0  = P0.02 / AIN0
+     * S0  = D3  = P0.29
+     * S1  = D6  = P1.11
+     * S2  = D7  = P1.12
+     * S3  = D9  = P1.14
+     * EN  = D11 = P0.15
      */
-    hall_mock: hall_mock {
-        compatible = "zmk,kscan-mock";
 
-        rows = <3>;
-        columns = <3>;
+    clavis_hall: clavis_hall {
+        compatible = "rvan,clavis-hall-kscan";
 
-        events = <>;
+        io-channels = <&adc 0>;
+
+        mux-s0-gpios = <&gpio0 29 GPIO_ACTIVE_HIGH>;
+        mux-s1-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
+        mux-s2-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+        mux-s3-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+
+        mux-enable-gpios =
+            <&gpio0 15 GPIO_ACTIVE_LOW>;
+
+        /*
+         * Initial values copied from the working Arduino version.
+         */
+        actuation-counts = <180>;
+        rapid-trigger-counts = <70>;
+        release-counts = <45>;
+
+        /*
+         * EMA:
+         * filtered += (raw - filtered) >> 2;
+         */
+        filter-shift = <2>;
+
+        /*
+         * Start with a 1 ms delay between complete scans.
+         * Real effective scan time also includes the ADC conversions.
+         */
+        scan-period-ms = <1>;
+
+        /*
+         * CD74HC4067 settling time used by Arduino.
+         */
+        mux-settle-us = <5>;
+
+        status = "okay";
     };
 
     /*
-     * Botones SW:
+     * ========================================================
+     * BOTONES DE ENCODERS
+     * ========================================================
      *
      * EC0 SW = D4  = P0.04
      * EC1 SW = D17 = P1.03
@@ -77,9 +124,14 @@
      * POSICIONES LÓGICAS
      * ========================================================
      *
-     * 0–8  = nueve teclas Hall.
-     * 9    = botón EC0.
-     * 10   = botón EC1.
+     * 0–8  = Hall:
+     *
+     * 0 1 2
+     * 3 4 5
+     * 6 7 8
+     *
+     * 9    = EC0 SW
+     * 10   = EC1 SW
      */
 
     default_transform: matrix_transform {
@@ -144,28 +196,21 @@
         status = "okay";
     };
 
-    /*
-     * El orden aquí controla el orden de sensor-bindings:
-     *
-     * sensor 0 = EC0
-     * sensor 1 = EC1
-     */
-
     clavis_sensors: clavis_sensors {
         compatible = "zmk,keymap-sensors";
 
         sensors = <&encoder0 &encoder1>;
 
+        /*
+         * Reduced from 20 for finer encoder control.
+         */
         triggers-per-rotation = <12>;
     };
 
     /*
      * ========================================================
-     * BACKLIGHT DE LA ST7789
+     * BACKLIGHT ST7789
      * ========================================================
-     *
-     * Se conserva exactamente como GPIO.
-     * No estamos implementando PWM ni control variable.
      */
 
     lcd_backlight: lcd_backlight {
@@ -207,10 +252,6 @@
             width = <240>;
             height = <240>;
 
-            /*
-             * Rotación 180° con la ventana correcta de memoria
-             * para este panel 240 × 240.
-             */
             x-offset = <0>;
             y-offset = <80>;
 
@@ -248,7 +289,36 @@
 };
 
 /*
- * SPI de la pantalla:
+ * ========================================================
+ * ADC — Hall MUX COM on D0 / P0.02 / AIN0
+ * ========================================================
+ *
+ * Gain 1/6 + internal reference gives the same basic
+ * 3.6 V full-scale arrangement used by the Arduino version.
+ */
+
+&adc {
+    status = "okay";
+
+    #address-cells = <1>;
+    #size-cells = <0>;
+
+    channel@0 {
+        reg = <0>;
+
+        zephyr,gain = "ADC_GAIN_1_6";
+        zephyr,reference = "ADC_REF_INTERNAL";
+        zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+
+        zephyr,input-positive = <NRF_SAADC_AIN0>;
+
+        zephyr,resolution = <12>;
+        zephyr,oversampling = <0>;
+    };
+};
+
+/*
+ * SPI pantalla:
  *
  * MOSI = D10 = P1.15
  * SCLK = D8  = P1.13
@@ -262,8 +332,8 @@
 };
 
 /*
- * D14/P0.09 y D15/P0.10 se usan como GPIO,
- * no como NFC.
+ * D14/P0.09 y D15/P0.10 como GPIO,
+ * no NFC.
  */
 
 &uicr {
