@@ -73,9 +73,9 @@
         /*
          * Initial values copied from the working Arduino version.
          */
-        actuation-counts = <180>;
-        rapid-trigger-counts = <70>;
-        release-counts = <45>;
+        actuation-counts = <375>;
+    rapid-trigger-counts = <180>;
+    release-counts = <45>;
 
         /*
          * EMA:
@@ -162,10 +162,10 @@
     encoder0: encoder0 {
         compatible = "alps,ec11";
 
-        a-gpios = <&gpio0 3
+        a-gpios = <&gpio0 28
             (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 
-        b-gpios = <&gpio0 28
+        b-gpios = <&gpio0 3
             (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 
         steps = <80>;
@@ -186,10 +186,10 @@
     encoder1: encoder1 {
         compatible = "alps,ec11";
 
-        a-gpios = <&gpio0 19
+        a-gpios = <&gpio1 1
             (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 
-        b-gpios = <&gpio1 1
+        b-gpios = <&gpio0 19
             (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 
         steps = <80>;
@@ -205,7 +205,7 @@
         /*
          * Reduced from 20 for finer encoder control.
          */
-        triggers-per-rotation = <12>;
+        triggers-per-rotation = <20>;
     };
 
     /*
