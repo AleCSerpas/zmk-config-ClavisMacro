@@ -20,7 +20,7 @@
             bindings = <&cl_rgb RGB_EFF>, <&cl_rgb RGB_EFR>;
         };
 
-            rgb_brightness_encoder: rgb_brightness_encoder {
+        rgb_brightness_encoder: rgb_brightness_encoder {
             compatible = "zmk,behavior-sensor-rotate";
             #sensor-binding-cells = <0>;
             bindings = <&cl_rgb RGB_BRI>, <&cl_rgb RGB_BRD>;
@@ -31,7 +31,7 @@
         compatible = "zmk,keymap";
 
         base_layer {
-            display-name = "Base";
+            display-name = "Numpad";
 
             bindings = <
                 &kp N1 &kp N2 &kp N3
@@ -47,12 +47,12 @@
         };
 
         rgb_layer {
-            display-name = "RGB";
+            display-name = "Lighting";
 
             bindings = <
-                &trans &trans &trans
-                &trans &trans &trans
-                &trans &trans &trans
+                &bootloader &trans &trans
+                &trans      &trans &trans
+                &trans      &trans &trans
                 &tog LAYER_RGB &trans
             >;
 
