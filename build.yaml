@@ -5,6 +5,5 @@ include:
     artifact-name: clavismacronicenano-nice-nano
 
   - board: xiao_ble//zmk
-    shield: clavismacroxiao
-    snippet: zmk-usb-logging
+    shield: clavismacroxiao raw_hid_adapter
     artifact-name: clavismacroxiao-xiao-ble-logging
