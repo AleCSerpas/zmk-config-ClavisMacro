@@ -14,12 +14,12 @@ zephyr_library_include_directories(
 
 zephyr_library_sources(
     clavis_rgb_engine.c
+    clavis_rgb_effects.c
+    clavis_rgb_key_events.c
     behavior_clavis_rgb.c
     clavis_hall_kscan.c
     clavis_raw_hid.c
 )
-
-
 
 # Custom ST7789 status screen.
 if(CONFIG_ZMK_DISPLAY AND CONFIG_ZMK_DISPLAY_STATUS_SCREEN_CUSTOM)
@@ -31,4 +31,3 @@ if(CONFIG_ZMK_DISPLAY AND CONFIG_ZMK_DISPLAY_STATUS_SCREEN_CUSTOM)
         clavis_status_screen.c
     )
 endif()
-
