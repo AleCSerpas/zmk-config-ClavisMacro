@@ -69,6 +69,12 @@ enum clavis_rgb_effect {
 
 #define CLAVIS_RGB_QMK_EFFECT_COUNT CLAVIS_RGB_EFFECT_COUNT
 
+struct clavis_rgb_color {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+};
+
 struct clavis_rgb_state {
     bool on;
     uint8_t effect;
@@ -79,6 +85,9 @@ struct clavis_rgb_state {
     bool reverse;
     uint16_t led_mask;  /* bits 0..9 */
     uint8_t selected_led;
+
+    bool paint_mode;
+    struct clavis_rgb_color paint_colors[CLAVIS_RGB_LED_COUNT];
 };
 
 int clavis_rgb_on(void);
@@ -89,6 +98,7 @@ int clavis_rgb_select_effect(uint8_t effect);
 int clavis_rgb_cycle_effect(int direction);
 
 int clavis_rgb_set_hsb(uint16_t hue, uint8_t saturation, uint8_t brightness);
+int clavis_rgb_set_hs(uint16_t hue, uint8_t saturation);
 int clavis_rgb_set_brightness(uint8_t brightness);
 int clavis_rgb_set_speed(uint8_t speed);
 
@@ -103,6 +113,10 @@ int clavis_rgb_toggle_reverse(void);
 int clavis_rgb_set_led_mask(uint16_t mask);
 int clavis_rgb_set_selected_led(uint8_t led_index);
 int clavis_rgb_select_next_led(int direction);
+
+int clavis_rgb_set_paint_mode(bool enabled);
+int clavis_rgb_set_paint_led(uint8_t led_index, uint8_t r, uint8_t g, uint8_t b);
+int clavis_rgb_fill_paint(uint8_t r, uint8_t g, uint8_t b);
 
 int clavis_rgb_get_state(struct clavis_rgb_state *out_state);
 const char *clavis_rgb_effect_name(uint8_t effect);

@@ -33,10 +33,16 @@
 #define RVAN_CMD_SET_RGB_EFFECT      0x11
 #define RVAN_CMD_SET_RGB_BRIGHTNESS  0x12
 #define RVAN_CMD_SET_RGB_SPEED       0x13
+#define RVAN_CMD_SET_RGB_COLOR       0x14
+#define RVAN_CMD_GET_PAINT_STATE     0x15
+#define RVAN_CMD_SET_PAINT_MODE      0x16
+#define RVAN_CMD_SET_PAINT_LED       0x17
+#define RVAN_CMD_SET_PAINT_ALL       0x18
 
 #define RVAN_RSP_PONG                0x81
 #define RVAN_RSP_DEVICE_INFO         0x82
 #define RVAN_RSP_RGB_STATE           0x90
+#define RVAN_RSP_PAINT_STATE         0x95
 #define RVAN_RSP_ERROR               0xFE
 
 #define RVAN_DEVICE_CLAVIS_MACRO 0x01
@@ -54,7 +60,7 @@
 
 #define RVAN_HW_REVISION 'A'
 #define RVAN_FW_MAJOR 0
-#define RVAN_FW_MINOR 2
+#define RVAN_FW_MINOR 3
 #define RVAN_FW_PATCH 0
 
 static uint8_t response[RVAN_HID_REPORT_SIZE];
@@ -144,6 +150,14 @@ static void rvan_handle_get_device_info(uint8_t transaction_id) {
     rvan_send_response();
 }
 
+static uint16_t rgb888_to_rgb565(struct clavis_rgb_color color) {
+    return (uint16_t)(
+        ((uint16_t)(color.r & 0xF8U) << 8) |
+        ((uint16_t)(color.g & 0xFCU) << 3) |
+        ((uint16_t)color.b >> 3)
+    );
+}
+
 static void rvan_send_rgb_state(uint8_t transaction_id) {
     struct clavis_rgb_state rgb;
 
@@ -184,6 +198,45 @@ static void rvan_send_rgb_state(uint8_t transaction_id) {
 
     response[15] = rgb.selected_led;
     response[16] = CLAVIS_RGB_EFFECT_COUNT;
+    response[17] = rgb.paint_mode ? 1U : 0U;
+
+    rvan_send_response();
+}
+
+static void rvan_send_paint_state(uint8_t transaction_id) {
+    struct clavis_rgb_state rgb;
+
+    if (clavis_rgb_get_state(&rgb) < 0) {
+        rvan_send_error(
+            transaction_id,
+            RVAN_CMD_GET_PAINT_STATE,
+            1U
+        );
+
+        return;
+    }
+
+    rvan_prepare_response(
+        RVAN_RSP_PAINT_STATE,
+        transaction_id
+    );
+
+    response[5] = rgb.paint_mode ? 1U : 0U;
+    response[6] = CLAVIS_RGB_LED_COUNT;
+
+    for (uint8_t i = 0; i < CLAVIS_RGB_LED_COUNT; i++) {
+        uint16_t packed =
+            rgb888_to_rgb565(rgb.paint_colors[i]);
+
+        uint8_t offset =
+            (uint8_t)(7U + (i * 2U));
+
+        response[offset] =
+            (uint8_t)(packed & 0xFFU);
+
+        response[offset + 1U] =
+            (uint8_t)((packed >> 8) & 0xFFU);
+    }
 
     rvan_send_response();
 }
@@ -246,6 +299,98 @@ static void rvan_handle_set_rgb_speed(
     rvan_send_rgb_state(transaction_id);
 }
 
+static void rvan_handle_set_rgb_color(
+    const uint8_t *data,
+    uint8_t transaction_id
+) {
+    uint16_t hue =
+        (uint16_t)data[5] |
+        ((uint16_t)data[6] << 8);
+
+    uint8_t saturation =
+        data[7];
+
+    if (hue >= 360U ||
+        saturation > 100U ||
+        clavis_rgb_set_hs(hue, saturation) < 0) {
+
+        rvan_send_error(
+            transaction_id,
+            RVAN_CMD_SET_RGB_COLOR,
+            1U
+        );
+
+        return;
+    }
+
+    rvan_send_rgb_state(transaction_id);
+}
+
+static void rvan_handle_set_paint_mode(
+    const uint8_t *data,
+    uint8_t transaction_id
+) {
+    if (data[5] > 1U ||
+        clavis_rgb_set_paint_mode(data[5] != 0U) < 0) {
+
+        rvan_send_error(
+            transaction_id,
+            RVAN_CMD_SET_PAINT_MODE,
+            1U
+        );
+
+        return;
+    }
+
+    rvan_send_rgb_state(transaction_id);
+}
+
+static void rvan_handle_set_paint_led(
+    const uint8_t *data,
+    uint8_t transaction_id
+) {
+    if (data[5] >= CLAVIS_RGB_LED_COUNT ||
+        clavis_rgb_set_paint_led(
+            data[5],
+            data[6],
+            data[7],
+            data[8]
+        ) < 0) {
+
+        rvan_send_error(
+            transaction_id,
+            RVAN_CMD_SET_PAINT_LED,
+            1U
+        );
+
+        return;
+    }
+
+    rvan_send_paint_state(transaction_id);
+}
+
+static void rvan_handle_set_paint_all(
+    const uint8_t *data,
+    uint8_t transaction_id
+) {
+    if (clavis_rgb_fill_paint(
+            data[5],
+            data[6],
+            data[7]
+        ) < 0) {
+
+        rvan_send_error(
+            transaction_id,
+            RVAN_CMD_SET_PAINT_ALL,
+            1U
+        );
+
+        return;
+    }
+
+    rvan_send_paint_state(transaction_id);
+}
+
 static int clavis_raw_hid_listener(const zmk_event_t *eh) {
     struct raw_hid_received_event *event =
         as_raw_hid_received_event(eh);
@@ -305,6 +450,40 @@ static int clavis_raw_hid_listener(const zmk_event_t *eh) {
 
     case RVAN_CMD_SET_RGB_SPEED:
         rvan_handle_set_rgb_speed(
+            data,
+            transaction_id
+        );
+        break;
+
+    case RVAN_CMD_SET_RGB_COLOR:
+        rvan_handle_set_rgb_color(
+            data,
+            transaction_id
+        );
+        break;
+
+    case RVAN_CMD_GET_PAINT_STATE:
+        rvan_send_paint_state(
+            transaction_id
+        );
+        break;
+
+    case RVAN_CMD_SET_PAINT_MODE:
+        rvan_handle_set_paint_mode(
+            data,
+            transaction_id
+        );
+        break;
+
+    case RVAN_CMD_SET_PAINT_LED:
+        rvan_handle_set_paint_led(
+            data,
+            transaction_id
+        );
+        break;
+
+    case RVAN_CMD_SET_PAINT_ALL:
+        rvan_handle_set_paint_all(
             data,
             transaction_id
         );

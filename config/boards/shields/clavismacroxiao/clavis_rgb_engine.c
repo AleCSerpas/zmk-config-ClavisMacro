@@ -4,6 +4,9 @@
  * Uses Zephyr's LED strip API directly. Rendering is delegated to the
  * Clavis QMK-style effect catalog in clavis_rgb_effects.c.
  *
+ * Paint Mode is rendered directly here so it can coexist with the normal
+ * 50-effect catalog without adding a fake QMK effect number.
+ *
  * SPDX-License-Identifier: MIT
  */
 
@@ -44,7 +47,7 @@ BUILD_ASSERT(STRIP_LED_COUNT == CLAVIS_RGB_LED_COUNT,
 #define CLAVIS_RGB_SPEED_STEP 5
 
 #define CLAVIS_RGB_SETTINGS_MAGIC 0x43524742U /* 'CRGB' */
-#define CLAVIS_RGB_SETTINGS_VERSION 2U
+#define CLAVIS_RGB_SETTINGS_VERSION 3U
 #define CLAVIS_RGB_PHASE_MODULUS 65536U
 
 #ifndef CONFIG_ZMK_SETTINGS_SAVE_DEBOUNCE
@@ -63,6 +66,8 @@ struct clavis_rgb_persisted_state {
     uint8_t reverse;
     uint16_t led_mask;
     uint8_t selected_led;
+    uint8_t paint_mode;
+    struct clavis_rgb_color paint_colors[CLAVIS_RGB_LED_COUNT];
 };
 
 static const struct device *const strip = DEVICE_DT_GET(STRIP_NODE);
@@ -78,6 +83,19 @@ static struct clavis_rgb_state state = {
     .reverse = false,
     .led_mask = CLAVIS_RGB_ALL_LEDS_MASK,
     .selected_led = 0,
+    .paint_mode = false,
+    .paint_colors = {
+        [0] = {.r = 0, .g = 200, .b = 255},
+        [1] = {.r = 0, .g = 200, .b = 255},
+        [2] = {.r = 0, .g = 200, .b = 255},
+        [3] = {.r = 0, .g = 200, .b = 255},
+        [4] = {.r = 0, .g = 200, .b = 255},
+        [5] = {.r = 0, .g = 200, .b = 255},
+        [6] = {.r = 0, .g = 200, .b = 255},
+        [7] = {.r = 0, .g = 200, .b = 255},
+        [8] = {.r = 0, .g = 200, .b = 255},
+        [9] = {.r = 0, .g = 200, .b = 255},
+    },
 };
 
 static struct k_mutex state_lock;
@@ -94,6 +112,32 @@ static bool strip_was_cleared;
 
 static void clear_pixels(void) {
     memset(pixels, 0, sizeof(pixels));
+}
+
+static bool led_selected(const struct clavis_rgb_state *snapshot, uint8_t index) {
+    return (snapshot->led_mask & BIT(index)) != 0U;
+}
+
+static uint8_t scale_channel(uint8_t channel, uint8_t brightness) {
+    return (uint8_t)(((uint16_t)channel * MIN(brightness, 100U)) / 100U);
+}
+
+static void render_paint_mode(const struct clavis_rgb_state *snapshot) {
+    clear_pixels();
+
+    for (uint8_t i = 0; i < CLAVIS_RGB_LED_COUNT; i++) {
+        if (!led_selected(snapshot, i)) {
+            continue;
+        }
+
+        const struct clavis_rgb_color *color = &snapshot->paint_colors[i];
+
+        pixels[i] = (struct led_rgb) {
+            .r = scale_channel(color->r, snapshot->brightness),
+            .g = scale_channel(color->g, snapshot->brightness),
+            .b = scale_channel(color->b, snapshot->brightness),
+        };
+    }
 }
 
 static void request_render(void) {
@@ -132,6 +176,11 @@ static uint32_t phase_step_for_speed(uint8_t speed) {
     return 1U + (MIN(speed, 100U) / 18U);
 }
 
+static bool snapshot_is_animated(const struct clavis_rgb_state *snapshot) {
+    return !snapshot->paint_mode &&
+           clavis_rgb_effect_is_animated(snapshot->effect);
+}
+
 static void render_work_handler(struct k_work *work) {
     ARG_UNUSED(work);
 
@@ -147,7 +196,7 @@ static void render_work_handler(struct k_work *work) {
     dirty = frame_dirty;
     was_cleared = strip_was_cleared;
 
-    if (snapshot.on && clavis_rgb_effect_is_animated(snapshot.effect)) {
+    if (snapshot.on && snapshot_is_animated(&snapshot)) {
         uint32_t step = phase_step_for_speed(snapshot.speed);
 
         if (snapshot.reverse) {
@@ -188,8 +237,12 @@ static void render_work_handler(struct k_work *work) {
             }
         }
 
-    } else if (dirty || clavis_rgb_effect_is_animated(snapshot.effect)) {
-        clavis_rgb_effect_render(&snapshot, phase, pixels);
+    } else if (dirty || snapshot_is_animated(&snapshot)) {
+        if (snapshot.paint_mode) {
+            render_paint_mode(&snapshot);
+        } else {
+            clavis_rgb_effect_render(&snapshot, phase, pixels);
+        }
 
         err = led_strip_update_rgb(
             strip,
@@ -205,7 +258,7 @@ static void render_work_handler(struct k_work *work) {
         }
 
         next_delay_ms =
-            clavis_rgb_effect_is_animated(snapshot.effect)
+            snapshot_is_animated(&snapshot)
                 ? CLAVIS_RGB_FRAME_MS
                 : CLAVIS_RGB_STATIC_POLL_MS;
     }
@@ -231,7 +284,7 @@ static void save_work_handler(struct k_work *work) {
     snapshot = state;
     k_mutex_unlock(&state_lock);
 
-    const struct clavis_rgb_persisted_state persisted = {
+    struct clavis_rgb_persisted_state persisted = {
         .magic = CLAVIS_RGB_SETTINGS_MAGIC,
         .version = CLAVIS_RGB_SETTINGS_VERSION,
         .on = snapshot.on,
@@ -243,7 +296,14 @@ static void save_work_handler(struct k_work *work) {
         .reverse = snapshot.reverse,
         .led_mask = snapshot.led_mask,
         .selected_led = snapshot.selected_led,
+        .paint_mode = snapshot.paint_mode,
     };
+
+    memcpy(
+        persisted.paint_colors,
+        snapshot.paint_colors,
+        sizeof(persisted.paint_colors)
+    );
 
     int err = settings_save_one(
         "clavis/rgb/state",
@@ -306,7 +366,14 @@ static int settings_set(const char *name,
         .reverse = persisted.reverse != 0U,
         .led_mask = persisted.led_mask & CLAVIS_RGB_ALL_LEDS_MASK,
         .selected_led = persisted.selected_led,
+        .paint_mode = persisted.paint_mode != 0U,
     };
+
+    memcpy(
+        loaded.paint_colors,
+        persisted.paint_colors,
+        sizeof(loaded.paint_colors)
+    );
 
     if (engine_ready) {
         k_mutex_lock(&state_lock, K_FOREVER);
@@ -403,6 +470,7 @@ int clavis_rgb_select_effect(uint8_t effect) {
 
     k_mutex_lock(&state_lock, K_FOREVER);
     state.effect = effect;
+    state.paint_mode = false;
     state.on = true;
     k_mutex_unlock(&state_lock);
 
@@ -429,6 +497,7 @@ int clavis_rgb_cycle_effect(int direction) {
     }
 
     state.effect = (uint8_t)effect;
+    state.paint_mode = false;
     state.on = true;
 
     k_mutex_unlock(&state_lock);
@@ -453,6 +522,21 @@ int clavis_rgb_set_hsb(uint16_t hue,
     state.brightness = brightness;
     state.on = true;
 
+    k_mutex_unlock(&state_lock);
+
+    mark_changed(false);
+    return 0;
+}
+
+int clavis_rgb_set_hs(uint16_t hue, uint8_t saturation) {
+    if (hue >= 360U || saturation > 100U) {
+        return -EINVAL;
+    }
+
+    k_mutex_lock(&state_lock, K_FOREVER);
+    state.hue = hue;
+    state.saturation = saturation;
+    state.on = true;
     k_mutex_unlock(&state_lock);
 
     mark_changed(false);
@@ -613,6 +697,62 @@ int clavis_rgb_select_next_led(int direction) {
     }
 
     state.selected_led = (uint8_t)selected;
+
+    k_mutex_unlock(&state_lock);
+
+    mark_changed(false);
+    return 0;
+}
+
+int clavis_rgb_set_paint_mode(bool enabled) {
+    k_mutex_lock(&state_lock, K_FOREVER);
+    state.paint_mode = enabled;
+    state.on = true;
+    k_mutex_unlock(&state_lock);
+
+    mark_changed(false);
+    return 0;
+}
+
+int clavis_rgb_set_paint_led(uint8_t led_index,
+                             uint8_t r,
+                             uint8_t g,
+                             uint8_t b) {
+    if (led_index >= CLAVIS_RGB_LED_COUNT) {
+        return -EINVAL;
+    }
+
+    k_mutex_lock(&state_lock, K_FOREVER);
+
+    state.paint_colors[led_index] = (struct clavis_rgb_color) {
+        .r = r,
+        .g = g,
+        .b = b,
+    };
+
+    state.selected_led = led_index;
+    state.paint_mode = true;
+    state.on = true;
+
+    k_mutex_unlock(&state_lock);
+
+    mark_changed(false);
+    return 0;
+}
+
+int clavis_rgb_fill_paint(uint8_t r, uint8_t g, uint8_t b) {
+    k_mutex_lock(&state_lock, K_FOREVER);
+
+    for (uint8_t i = 0; i < CLAVIS_RGB_LED_COUNT; i++) {
+        state.paint_colors[i] = (struct clavis_rgb_color) {
+            .r = r,
+            .g = g,
+            .b = b,
+        };
+    }
+
+    state.paint_mode = true;
+    state.on = true;
 
     k_mutex_unlock(&state_lock);
 
