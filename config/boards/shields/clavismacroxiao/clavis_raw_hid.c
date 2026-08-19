@@ -61,7 +61,7 @@
 #define RVAN_HW_REVISION 'A'
 #define RVAN_FW_MAJOR 0
 #define RVAN_FW_MINOR 3
-#define RVAN_FW_PATCH 0
+#define RVAN_FW_PATCH 1
 
 static uint8_t response[RVAN_HID_REPORT_SIZE];
 
@@ -150,14 +150,6 @@ static void rvan_handle_get_device_info(uint8_t transaction_id) {
     rvan_send_response();
 }
 
-static uint16_t rgb888_to_rgb565(struct clavis_rgb_color color) {
-    return (uint16_t)(
-        ((uint16_t)(color.r & 0xF8U) << 8) |
-        ((uint16_t)(color.g & 0xFCU) << 3) |
-        ((uint16_t)color.b >> 3)
-    );
-}
-
 static void rvan_send_rgb_state(uint8_t transaction_id) {
     struct clavis_rgb_state rgb;
 
@@ -203,7 +195,8 @@ static void rvan_send_rgb_state(uint8_t transaction_id) {
     rvan_send_response();
 }
 
-static void rvan_send_paint_state(uint8_t transaction_id) {
+static void rvan_send_paint_state(const uint8_t *data,
+                                  uint8_t transaction_id) {
     struct clavis_rgb_state rgb;
 
     if (clavis_rgb_get_state(&rgb) < 0) {
@@ -216,26 +209,65 @@ static void rvan_send_paint_state(uint8_t transaction_id) {
         return;
     }
 
+    /*
+     * Exact RGB888 paint colors are returned in two chunks.
+     *
+     * Request:
+     *   byte 5: chunk index (0 or 1)
+     *
+     * Response:
+     *   byte 5: paint mode enabled
+     *   byte 6: chunk index
+     *   byte 7: total chunks
+     *   byte 8: first LED index
+     *   byte 9: LED count in this chunk
+     *   byte 10..24: five RGB888 colors
+     *
+     * This avoids packing/quantizing the final LEDs and keeps every
+     * browser color exactly aligned with the firmware state.
+     */
+    const uint8_t chunk_index = data[5];
+
+    if (chunk_index >= 2U) {
+        rvan_send_error(
+            transaction_id,
+            RVAN_CMD_GET_PAINT_STATE,
+            2U
+        );
+
+        return;
+    }
+
+    const uint8_t start_led =
+        (uint8_t)(chunk_index * 5U);
+
+    const uint8_t remaining =
+        (uint8_t)(CLAVIS_RGB_LED_COUNT - start_led);
+
+    const uint8_t count =
+        remaining > 5U ? 5U : remaining;
+
     rvan_prepare_response(
         RVAN_RSP_PAINT_STATE,
         transaction_id
     );
 
     response[5] = rgb.paint_mode ? 1U : 0U;
-    response[6] = CLAVIS_RGB_LED_COUNT;
+    response[6] = chunk_index;
+    response[7] = 2U;
+    response[8] = start_led;
+    response[9] = count;
 
-    for (uint8_t i = 0; i < CLAVIS_RGB_LED_COUNT; i++) {
-        uint16_t packed =
-            rgb888_to_rgb565(rgb.paint_colors[i]);
+    for (uint8_t i = 0; i < count; i++) {
+        const struct clavis_rgb_color *color =
+            &rgb.paint_colors[start_led + i];
 
-        uint8_t offset =
-            (uint8_t)(7U + (i * 2U));
+        const uint8_t offset =
+            (uint8_t)(10U + (i * 3U));
 
-        response[offset] =
-            (uint8_t)(packed & 0xFFU);
-
-        response[offset + 1U] =
-            (uint8_t)((packed >> 8) & 0xFFU);
+        response[offset] = color->r;
+        response[offset + 1U] = color->g;
+        response[offset + 2U] = color->b;
     }
 
     rvan_send_response();
@@ -366,7 +398,7 @@ static void rvan_handle_set_paint_led(
         return;
     }
 
-    rvan_send_paint_state(transaction_id);
+    rvan_send_rgb_state(transaction_id);
 }
 
 static void rvan_handle_set_paint_all(
@@ -388,7 +420,7 @@ static void rvan_handle_set_paint_all(
         return;
     }
 
-    rvan_send_paint_state(transaction_id);
+    rvan_send_rgb_state(transaction_id);
 }
 
 static int clavis_raw_hid_listener(const zmk_event_t *eh) {
@@ -464,6 +496,7 @@ static int clavis_raw_hid_listener(const zmk_event_t *eh) {
 
     case RVAN_CMD_GET_PAINT_STATE:
         rvan_send_paint_state(
+            data,
             transaction_id
         );
         break;
