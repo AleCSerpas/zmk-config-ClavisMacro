@@ -28,10 +28,13 @@
 #include <lvgl.h>
 
 #include <zmk/battery.h>
+#include <zmk/ble.h>
 #include <zmk/display/status_screen.h>
+#include <zmk/endpoints.h>
 #include <zmk/keymap.h>
 
 #include "clavis_rgb_engine.h"
+#include "clavis_screen_config.h"
 
 #define UI_UPDATE_PERIOD_MS 250
 #define VOLUME_PLACEHOLDER 36
@@ -40,6 +43,7 @@
 #define COLOR_PANEL      0x1C1E20
 #define COLOR_WHITE      0xF7F7F7
 #define COLOR_TRACK      0x3A3A3A
+#define COLOR_MUTED      0x9A9A9A
 #define COLOR_SHADOW     0x000000
 
 #define RGB_RING_X 126
@@ -48,6 +52,10 @@
 #define RGB_RING_WIDTH 7
 #define RGB_RING_SEGMENTS 12
 
+static lv_obj_t *output_label;
+static lv_obj_t *output_sub_label;
+
+static lv_obj_t *layer_panel;
 static lv_obj_t *layer_label;
 
 static lv_obj_t *rgb_track;
@@ -353,7 +361,173 @@ static void update_rgb_segments(
     }
 }
 
-static void update_layer(void) {
+
+static void set_hidden(lv_obj_t *object, bool hidden) {
+    if (object == NULL) {
+        return;
+    }
+
+    if (hidden) {
+        lv_obj_add_flag(
+            object,
+            LV_OBJ_FLAG_HIDDEN
+        );
+    } else {
+        lv_obj_remove_flag(
+            object,
+            LV_OBJ_FLAG_HIDDEN
+        );
+    }
+}
+
+static void set_rgb_hidden(bool hidden) {
+    set_hidden(rgb_track, hidden);
+    set_hidden(rgb_label, hidden);
+
+    if (hidden) {
+        for (uint8_t i = 0; i < RGB_RING_SEGMENTS; i++) {
+            set_hidden(
+                rgb_segments[i],
+                true
+            );
+        }
+    }
+}
+
+static void update_output(uint8_t flags) {
+    const bool visible =
+        (flags & CLAVIS_SCREEN_SHOW_OUTPUT) != 0U;
+
+    set_hidden(output_label, !visible);
+    set_hidden(output_sub_label, !visible);
+
+    if (!visible) {
+        return;
+    }
+
+    const struct zmk_endpoint_instance selected =
+        zmk_endpoint_get_selected();
+
+    const enum zmk_transport preferred =
+        zmk_endpoint_get_preferred_transport();
+
+    int profile_index =
+        zmk_ble_active_profile_index();
+
+    if (profile_index < 0) {
+        profile_index = 0;
+    }
+
+    const bool connected =
+        zmk_ble_active_profile_is_connected();
+
+    const bool bonded =
+        !zmk_ble_active_profile_is_open();
+
+    char title[16] = {};
+    char subtitle[24] = {};
+
+    if (selected.transport == ZMK_TRANSPORT_USB) {
+        snprintf(
+            title,
+            sizeof(title),
+            "USB"
+        );
+
+        snprintf(
+            subtitle,
+            sizeof(subtitle),
+            connected
+                ? "BT %d connected"
+                : bonded
+                    ? "BT %d saved"
+                    : "BT %d pairing",
+            profile_index + 1
+        );
+
+    } else if (selected.transport == ZMK_TRANSPORT_BLE) {
+        snprintf(
+            title,
+            sizeof(title),
+            "BT %d",
+            profile_index + 1
+        );
+
+        snprintf(
+            subtitle,
+            sizeof(subtitle),
+            connected
+                ? "Connected"
+                : bonded
+                    ? "Saved"
+                    : "Pairing"
+        );
+
+    } else if (preferred == ZMK_TRANSPORT_BLE) {
+        snprintf(
+            title,
+            sizeof(title),
+            "BT %d",
+            profile_index + 1
+        );
+
+        snprintf(
+            subtitle,
+            sizeof(subtitle),
+            bonded
+                ? "Offline"
+                : "Pairing"
+        );
+
+    } else if (preferred == ZMK_TRANSPORT_USB) {
+        snprintf(
+            title,
+            sizeof(title),
+            "USB"
+        );
+
+        snprintf(
+            subtitle,
+            sizeof(subtitle),
+            "Waiting"
+        );
+
+    } else {
+        snprintf(
+            title,
+            sizeof(title),
+            "Offline"
+        );
+
+        snprintf(
+            subtitle,
+            sizeof(subtitle),
+            "BT %d",
+            profile_index + 1
+        );
+    }
+
+    lv_label_set_text(
+        output_label,
+        title
+    );
+
+    lv_label_set_text(
+        output_sub_label,
+        subtitle
+    );
+}
+
+static void update_layer(uint8_t flags) {
+    const bool visible =
+        (flags & CLAVIS_SCREEN_SHOW_LAYER) != 0U;
+
+    set_hidden(layer_panel, !visible);
+
+    if (!visible) {
+        return;
+    }
+
     zmk_keymap_layer_index_t index =
         zmk_keymap_highest_layer_active();
 
@@ -365,7 +539,12 @@ static void update_layer(void) {
     char text[20] = {};
 
     if (name != NULL && strlen(name) > 0) {
-        snprintf(text, sizeof(text), "%s", name);
+        snprintf(
+            text,
+            sizeof(text),
+            "%s",
+            name
+        );
     } else {
         snprintf(
             text,
@@ -375,24 +554,42 @@ static void update_layer(void) {
         );
     }
 
-    lv_label_set_text(layer_label, text);
+    lv_label_set_text(
+        layer_label,
+        text
+    );
 }
 
-static void update_rgb(void) {
+static void update_rgb(uint8_t flags) {
+    const bool visible =
+        (flags & CLAVIS_SCREEN_SHOW_RGB) != 0U;
+
+    set_rgb_hidden(!visible);
+
+    if (!visible) {
+        return;
+    }
+
     struct clavis_rgb_state rgb_state = {0};
 
     if (clavis_rgb_get_state(&rgb_state) < 0) {
-        set_percent_label(rgb_label, 0);
+        set_percent_label(
+            rgb_label,
+            0
+        );
 
         for (uint8_t i = 0; i < RGB_RING_SEGMENTS; i++) {
-            lv_obj_add_flag(
+            set_hidden(
                 rgb_segments[i],
-                LV_OBJ_FLAG_HIDDEN
+                true
             );
         }
 
         return;
     }
+
+    set_hidden(rgb_track, false);
+    set_hidden(rgb_label, false);
 
     uint8_t brightness =
         rgb_state.on
@@ -410,7 +607,19 @@ static void update_rgb(void) {
     );
 }
 
-static void update_battery(void) {
+static void update_battery(uint8_t flags) {
+    const bool configured_visible =
+        (flags & CLAVIS_SCREEN_SHOW_BATTERY) != 0U;
+
+    if (!configured_visible) {
+        set_hidden(
+            battery_group,
+            true
+        );
+
+        return;
+    }
+
     uint8_t level =
         CLAMP(
             zmk_battery_state_of_charge(),
@@ -418,18 +627,22 @@ static void update_battery(void) {
             100
         );
 
-    if (level == 0) {
-        lv_obj_add_flag(
+    /*
+     * Keep the existing behavior: a 0% reading is treated as
+     * "battery not available" and the widget is hidden.
+     */
+    if (level == 0U) {
+        set_hidden(
             battery_group,
-            LV_OBJ_FLAG_HIDDEN
+            true
         );
 
         return;
     }
 
-    lv_obj_remove_flag(
+    set_hidden(
         battery_group,
-        LV_OBJ_FLAG_HIDDEN
+        false
     );
 
     lv_arc_set_value(
@@ -443,12 +656,51 @@ static void update_battery(void) {
     );
 }
 
+static void update_volume(uint8_t flags) {
+    const bool visible =
+        (flags & CLAVIS_SCREEN_SHOW_VOLUME) != 0U;
+
+    set_hidden(
+        volume_bar,
+        !visible
+    );
+
+    set_hidden(
+        volume_label,
+        !visible
+    );
+}
+
 static void update_ui(lv_timer_t *timer) {
     ARG_UNUSED(timer);
 
-    update_layer();
-    update_rgb();
-    update_battery();
+    struct clavis_screen_state screen_state = {
+        .flags = CLAVIS_SCREEN_DEFAULT_FLAGS,
+    };
+
+    clavis_screen_get_state(
+        &screen_state
+    );
+
+    update_output(
+        screen_state.flags
+    );
+
+    update_layer(
+        screen_state.flags
+    );
+
+    update_rgb(
+        screen_state.flags
+    );
+
+    update_battery(
+        screen_state.flags
+    );
+
+    update_volume(
+        screen_state.flags
+    );
 }
 
 lv_obj_t *zmk_display_status_screen(void) {
@@ -475,11 +727,69 @@ lv_obj_t *zmk_display_status_screen(void) {
         LV_OBJ_FLAG_SCROLLABLE
     );
 
-    /* RGB brightness ring — segmented so it can show a real RGB spectrum. */
+    /*
+     * Connection / Bluetooth status.
+     *
+     * When USB is selected, the second line still shows the active
+     * Bluetooth profile so the user does not lose track of BT pairing.
+     */
+    output_label =
+        lv_label_create(screen);
+
+    lv_obj_set_pos(
+        output_label,
+        8,
+        7
+    );
+
+    lv_obj_set_size(
+        output_label,
+        110,
+        22
+    );
+
+    lv_obj_set_style_text_color(
+        output_label,
+        lv_color_hex(COLOR_WHITE),
+        LV_PART_MAIN
+    );
+
+    lv_obj_set_style_text_font(
+        output_label,
+        &lv_font_montserrat_16,
+        LV_PART_MAIN
+    );
+
+    output_sub_label =
+        lv_label_create(screen);
+
+    lv_obj_set_pos(
+        output_sub_label,
+        8,
+        31
+    );
+
+    lv_obj_set_size(
+        output_sub_label,
+        112,
+        20
+    );
+
+    lv_obj_set_style_text_color(
+        output_sub_label,
+        lv_color_hex(COLOR_MUTED),
+        LV_PART_MAIN
+    );
+
+    lv_obj_set_style_text_font(
+        output_sub_label,
+        &lv_font_montserrat_14,
+        LV_PART_MAIN
+    );
+
+    /* RGB brightness ring. */
     rgb_track =
         create_rgb_track(screen);
-
-    ARG_UNUSED(rgb_track);
 
     for (uint8_t i = 0; i < RGB_RING_SEGMENTS; i++) {
         rgb_segments[i] =
@@ -539,7 +849,7 @@ lv_obj_t *zmk_display_status_screen(void) {
     );
 
     /* Central rounded layer panel. */
-    lv_obj_t *layer_panel =
+    layer_panel =
         lv_obj_create(screen);
 
     lv_obj_remove_style_all(
@@ -648,7 +958,7 @@ lv_obj_t *zmk_display_status_screen(void) {
         layer_label
     );
 
-    /* Volume placeholder. */
+    /* Volume placeholder — fixed until host volume feedback is added. */
     volume_bar =
         lv_bar_create(screen);
 
@@ -754,9 +1064,7 @@ lv_obj_t *zmk_display_status_screen(void) {
         LV_PART_MAIN
     );
 
-    update_layer();
-    update_rgb();
-    update_battery();
+    update_ui(NULL);
 
     lv_timer_create(
         update_ui,

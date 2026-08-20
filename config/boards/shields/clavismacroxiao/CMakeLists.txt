@@ -16,6 +16,7 @@ zephyr_library_sources(
     clavis_rgb_engine.c
     clavis_rgb_effects.c
     clavis_rgb_key_events.c
+    clavis_screen_config.c
     behavior_clavis_rgb.c
     clavis_hall_kscan.c
     clavis_raw_hid.c

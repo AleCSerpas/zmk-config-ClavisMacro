@@ -16,9 +16,15 @@
 #include <string.h>
 
 #include <zmk/event_manager.h>
+#include <zmk/battery.h>
+#include <zmk/ble.h>
+#include <zmk/endpoints.h>
+#include <zmk/keymap.h>
+
 #include <raw_hid/events.h>
 
 #include "clavis_rgb_engine.h"
+#include "clavis_screen_config.h"
 
 #define RVAN_HID_REPORT_SIZE 32
 
@@ -39,10 +45,14 @@
 #define RVAN_CMD_SET_PAINT_LED       0x17
 #define RVAN_CMD_SET_PAINT_ALL       0x18
 
+#define RVAN_CMD_GET_SCREEN_STATE     0x30
+#define RVAN_CMD_SET_SCREEN_FLAGS     0x31
+
 #define RVAN_RSP_PONG                0x81
 #define RVAN_RSP_DEVICE_INFO         0x82
 #define RVAN_RSP_RGB_STATE           0x90
 #define RVAN_RSP_PAINT_STATE         0x95
+#define RVAN_RSP_SCREEN_STATE        0xB0
 #define RVAN_RSP_ERROR               0xFE
 
 #define RVAN_DEVICE_CLAVIS_MACRO 0x01
@@ -60,8 +70,8 @@
 
 #define RVAN_HW_REVISION 'A'
 #define RVAN_FW_MAJOR 0
-#define RVAN_FW_MINOR 3
-#define RVAN_FW_PATCH 1
+#define RVAN_FW_MINOR 4
+#define RVAN_FW_PATCH 0
 
 static uint8_t response[RVAN_HID_REPORT_SIZE];
 
@@ -423,6 +433,110 @@ static void rvan_handle_set_paint_all(
     rvan_send_rgb_state(transaction_id);
 }
 
+
+static void rvan_send_screen_state(uint8_t transaction_id) {
+    struct clavis_screen_state screen_state;
+
+    if (clavis_screen_get_state(&screen_state) < 0) {
+        rvan_send_error(
+            transaction_id,
+            RVAN_CMD_GET_SCREEN_STATE,
+            1U
+        );
+
+        return;
+    }
+
+    rvan_prepare_response(
+        RVAN_RSP_SCREEN_STATE,
+        transaction_id
+    );
+
+    const struct zmk_endpoint_instance selected =
+        zmk_endpoint_get_selected();
+
+    const enum zmk_transport preferred =
+        zmk_endpoint_get_preferred_transport();
+
+    int active_profile =
+        zmk_ble_active_profile_index();
+
+    const bool profile_connected =
+        zmk_ble_active_profile_is_connected();
+
+    const bool profile_bonded =
+        !zmk_ble_active_profile_is_open();
+
+    zmk_keymap_layer_index_t layer_index =
+        zmk_keymap_highest_layer_active();
+
+    const char *layer_name =
+        zmk_keymap_layer_name(
+            zmk_keymap_layer_index_to_id(layer_index)
+        );
+
+    response[5] = screen_state.flags;
+    response[6] = zmk_battery_state_of_charge();
+    response[7] = (uint8_t)selected.transport;
+    response[8] = (uint8_t)preferred;
+
+    response[9] =
+        active_profile >= 0
+            ? (uint8_t)active_profile
+            : 0xFFU;
+
+    response[10] =
+        profile_connected ? 1U : 0U;
+
+    response[11] =
+        profile_bonded ? 1U : 0U;
+
+    response[12] =
+        (uint8_t)layer_index;
+
+    if (layer_name != NULL) {
+        const size_t max_length =
+            RVAN_HID_REPORT_SIZE - 13U;
+
+        const size_t name_length =
+            strnlen(
+                layer_name,
+                max_length - 1U
+            );
+
+        memcpy(
+            &response[13],
+            layer_name,
+            name_length
+        );
+    }
+
+    rvan_send_response();
+}
+
+static void rvan_handle_set_screen_flags(
+    const uint8_t *data,
+    uint8_t transaction_id
+) {
+    const uint8_t flags = data[5];
+
+    if ((flags & ~CLAVIS_SCREEN_ALLOWED_FLAGS) != 0U ||
+        clavis_screen_set_flags(flags) < 0) {
+
+        rvan_send_error(
+            transaction_id,
+            RVAN_CMD_SET_SCREEN_FLAGS,
+            1U
+        );
+
+        return;
+    }
+
+    rvan_send_screen_state(
+        transaction_id
+    );
+}
+
 static int clavis_raw_hid_listener(const zmk_event_t *eh) {
     struct raw_hid_received_event *event =
         as_raw_hid_received_event(eh);
@@ -517,6 +631,19 @@ static int clavis_raw_hid_listener(const zmk_event_t *eh) {
 
     case RVAN_CMD_SET_PAINT_ALL:
         rvan_handle_set_paint_all(
+            data,
+            transaction_id
+        );
+        break;
+
+    case RVAN_CMD_GET_SCREEN_STATE:
+        rvan_send_screen_state(
+            transaction_id
+        );
+        break;
+
+    case RVAN_CMD_SET_SCREEN_FLAGS:
+        rvan_handle_set_screen_flags(
             data,
             transaction_id
         );
