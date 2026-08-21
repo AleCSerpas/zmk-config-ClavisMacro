@@ -165,8 +165,8 @@ static void set_percent_label(lv_obj_t *label, uint8_t value) {
     lv_obj_set_style_text_font(
         label,
         value >= 100U
-            ? &lv_font_montserrat_14
-            : &lv_font_montserrat_16,
+            ? &lv_font_montserrat_10
+            : &lv_font_montserrat_12,
         LV_PART_MAIN
     );
 }
