@@ -39,7 +39,7 @@
 #define UI_UPDATE_PERIOD_MS 250
 #define VOLUME_PLACEHOLDER 36
 
-#define COLOR_BACKGROUND 0x151617
+#define COLOR_BACKGROUND 0x000000
 #define COLOR_PANEL      0x1C1E20
 #define COLOR_WHITE      0xF7F7F7
 #define COLOR_TRACK      0x3A3A3A
@@ -165,8 +165,8 @@ static void set_percent_label(lv_obj_t *label, uint8_t value) {
     lv_obj_set_style_text_font(
         label,
         value >= 100U
-            ? &lv_font_montserrat_10
-            : &lv_font_montserrat_12,
+            ? &lv_font_montserrat_14
+            : &lv_font_montserrat_16,
         LV_PART_MAIN
     );
 }
